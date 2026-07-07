@@ -612,7 +612,7 @@ def get_column_mapping(header_row: list[str]):
         "Amount": ["amount", "monto", "importe"], 
         "Description": ["description", "particulars", "remarks", "narration", "detail", "reference", "concepto", "descripción", "descripcion"], 
         "Reference": ["reference", "ref", "tran id", "transaction id", "cheque", "check", "id", "chq", "referencia", "nro"], 
-        "Transaction Type": ["transaction type", "cr/dr", "dr/cr", "debit/credit", "credit/debit", "tipo"], 
+        "Transaction Type": ["transaction type", "cr/dr", "dr/cr", "debit/credit", "credit/debit", "tipo", "d/c", "c/d", "signo"], 
         "Balance": ["balance", "saldo"],
     }
     # A standard variable can be represented by multiple names
@@ -703,6 +703,9 @@ def auto_detect_columns(row: list[str]):
         elif isinstance(cell, str) and len(cell) > 5 and "Description" not in column_mapping:
             col_type = "Description"
             header_text = "Descripción"
+        elif isinstance(cell, str) and str(cell).strip().upper() in ["C", "D", "CR", "DR"] and "Transaction Type" not in column_mapping:
+            col_type = "Transaction Type"
+            header_text = "Tipo"
         
         column = {
             "index": idx,
@@ -891,9 +894,10 @@ def get_file_properties(transactions: list):
         
         # Check if there's a transaction type column containing "cr"/"dr"
         if transaction.get("transaction_type", None):
-            if "cr" in transaction.get("transaction_type", "").lower() or "dr" in transaction.get("transaction_type", "").lower():
+            t_type = transaction.get("transaction_type", "").lower().strip()
+            if "cr" in t_type or "dr" in t_type or t_type in ["c", "d"] or "credito" in t_type or "debito" in t_type or "crédito" in t_type or "débito" in t_type:
                 amount_format_frequency["cr_dr_in_transaction_type"] += 1
-            if "deposit" in transaction.get("transaction_type", "").lower() or "withdrawal" in transaction.get("transaction_type", "").lower():
+            if "deposit" in t_type or "withdrawal" in t_type or "abono" in t_type or "cargo" in t_type:
                 amount_format_frequency["deposit_withdrawal_in_transaction_type"] += 1
         
         # Else assume that the amount is expressed as positive/negative value
@@ -982,17 +986,17 @@ def get_final_transactions(transactions: list, date_format: str, amount_format: 
                 return abs(amount), 0
         
         if amount_format == "cr_dr_in_transaction_type":
-            transaction_type = transaction_row.get("transaction_type")
+            transaction_type = transaction_row.get("transaction_type", "").lower().strip()
             amount = get_float_amount(transaction_row.get("amount", "0"))
-            if "cr" in transaction_type.lower():
+            if "cr" in transaction_type or transaction_type == "c" or "cred" in transaction_type or "créd" in transaction_type:
                 return 0, abs(amount)
             else:
                 return abs(amount), 0
         
         if amount_format == "deposit_withdrawal_in_transaction_type":
-            transaction_type = transaction_row.get("transaction_type")
+            transaction_type = transaction_row.get("transaction_type", "").lower().strip()
             amount = get_float_amount(transaction_row.get("amount", "0"))
-            if "deposit" in transaction_type.lower():
+            if "deposit" in transaction_type or "abono" in transaction_type:
                 return 0, abs(amount)
             else:
                 return abs(amount), 0
