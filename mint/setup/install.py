@@ -1,6 +1,14 @@
+import frappe
 from frappe.custom.doctype.custom_field.custom_field import create_custom_fields
 
 def after_install():
+
+    # Check if reconciliation_type field already exists in ERPNext - if it does, do not add it
+    if frappe.db.exists("DocField", {
+        "parent": "Bank Transaction Payments",
+        "fieldname": "reconciliation_type",
+    }):
+        return
 
     create_custom_fields({
         "Bank Transaction Payments": [
