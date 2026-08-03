@@ -6,6 +6,13 @@
   <p align="center">Better bank reconciliation for ERPNext
      <br />
     <br />
+
+> [!IMPORTANT]  
+> Mint is no longer being maintained. A new and improved bank reconciliation experience is now available directly in ERPNext v16. Just update ERPNext on your site and go to "/banking".
+
+<br />
+<br />
+
     <a href="https://github.com/The-Commit-Company/mint/issues">Issues</a>
     ·
     <a href="https://community.ravenapp.cloud">Community & Support</a>
