@@ -6,7 +6,7 @@ import { getCompanyCurrency } from "@/lib/company"
 import ErrorBanner from "@/components/ui/error-banner"
 import { Separator } from "@/components/ui/separator"
 import Fuse from 'fuse.js'
-import { getSearchResults, LinkedPayment, UnreconciledTransaction, useGetRuleForTransaction, useGetUnreconciledTransactions, useGetVouchersForTransaction, useIsTransactionWithdrawal, useReconcileTransaction, useTransactionSearch } from "./utils"
+import { getSearchResults, LinkedPayment, UnreconciledTransaction, useAutoReconcileByReference, useGetRuleForTransaction, useGetUnreconciledTransactions, useGetVouchersForTransaction, useIsTransactionWithdrawal, useReconcileTransaction, useTransactionSearch } from "./utils"
 import { Input } from "@/components/ui/input"
 import { AlertCircle, ArrowDownRight, ArrowRightIcon, ArrowRightLeft, ArrowUpRight, BadgeCheck, ChevronDown, DollarSign, Landmark, LandmarkIcon, ListIcon, Loader2, Receipt, ReceiptIcon, Search, User, XCircle, ZapIcon } from "lucide-react"
 import { cn } from "@/lib/utils"
@@ -85,6 +85,8 @@ const UnreconciledTransactions = ({ contentHeight }: { contentHeight: number }) 
     const [amountFilter, setAmountFilter] = useAtom(bankRecAmountFilter)
 
     const [search, setSearch] = useTransactionSearch()
+
+    const { autoReconcileByReference, loading: autoReconcileLoading } = useAutoReconcileByReference()
 
     const searchIndex = useMemo(() => {
 
@@ -182,6 +184,17 @@ const UnreconciledTransactions = ({ contentHeight }: { contentHeight: number }) 
                     }}
                     customInput={Input}
                 />
+            </div>
+            <div>
+                <Button
+                    variant="outline"
+                    className="h-9 whitespace-nowrap"
+                    onClick={autoReconcileByReference}
+                    disabled={autoReconcileLoading || !bankAccount}
+                >
+                    <ZapIcon className="w-4 h-4" />
+                    {autoReconcileLoading ? _("Reconciling...") : _("Auto Reconcile by UTR")}
+                </Button>
             </div>
             <div>
                 <DropdownMenu>
