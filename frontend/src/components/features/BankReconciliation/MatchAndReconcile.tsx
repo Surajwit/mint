@@ -193,7 +193,7 @@ const UnreconciledTransactions = ({ contentHeight }: { contentHeight: number }) 
                     disabled={autoReconcileLoading || !bankAccount}
                 >
                     <ZapIcon className="w-4 h-4" />
-                    {autoReconcileLoading ? _("Reconciling...") : _("Auto Reconcile by UTR")}
+                    {autoReconcileLoading ? _("Reconciling...") : _("Auto Reconcile")}
                 </Button>
             </div>
             <div>
