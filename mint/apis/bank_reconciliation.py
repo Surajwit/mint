@@ -48,6 +48,134 @@ def reconcile_vouchers(bank_transaction_name: str | int, vouchers: str, is_new_v
     
     return transaction
 
+
+@frappe.whitelist()
+def auto_reconcile_by_reference(bank_account=None, from_date=None, to_date=None):
+    """
+    Automatically reconcile unreconciled Bank Transactions
+    against submitted Payment Entries using exact reference number
+    and amount matching.
+    """
+
+    filters = {
+        "docstatus": 1,
+        "status": "Unreconciled",
+    }
+
+    if bank_account:
+        filters["bank_account"] = bank_account
+
+    if from_date and to_date:
+        filters["date"] = ["between", [from_date, to_date]]
+    elif from_date:
+        filters["date"] = [">=", from_date]
+    elif to_date:
+        filters["date"] = ["<=", to_date]
+
+    transactions = frappe.get_all(
+        "Bank Transaction",
+        filters=filters,
+        fields=[
+            "name",
+            "reference_number",
+            "unallocated_amount",
+            "date",
+            "bank_account",
+        ],
+        order_by="date asc",
+    )
+
+    reconciled = []
+    skipped = []
+
+    for transaction in transactions:
+        reference_number = transaction.get("reference_number")
+
+        if not reference_number:
+            skipped.append({
+                "bank_transaction": transaction.name,
+                "reason": "No reference number",
+            })
+            continue
+
+        payment_entries = frappe.get_all(
+            "Payment Entry",
+            filters={
+                "docstatus": 1,
+                "reference_no": reference_number,
+            },
+            fields=["name", "paid_amount", "reference_no"],
+        )
+
+        if len(payment_entries) != 1:
+            skipped.append({
+                "bank_transaction": transaction.name,
+                "reference_number": reference_number,
+                "reason": (
+                    "No matching Payment Entry"
+                    if len(payment_entries) == 0
+                    else "Multiple Payment Entries with same reference number"
+                ),
+            })
+            continue
+
+        payment_entry = payment_entries[0]
+
+        if abs(
+            float(payment_entry.paid_amount)
+            - float(transaction.unallocated_amount)
+        ) > 0.01:
+            skipped.append({
+                "bank_transaction": transaction.name,
+                "payment_entry": payment_entry.name,
+                "reference_number": reference_number,
+                "reason": "Amount mismatch",
+                "bank_amount": transaction.unallocated_amount,
+                "payment_amount": payment_entry.paid_amount,
+            })
+            continue
+
+        try:
+            vouchers = json.dumps([{
+                "payment_doctype": "Payment Entry",
+                "payment_name": payment_entry.name,
+                "amount": payment_entry.paid_amount,
+            }])
+
+            reconcile_vouchers(
+                transaction.name,
+                vouchers,
+                False,
+            )
+
+            reconciled.append({
+                "bank_transaction": transaction.name,
+                "payment_entry": payment_entry.name,
+                "reference_number": reference_number,
+                "amount": payment_entry.paid_amount,
+            })
+
+        except Exception as e:
+            frappe.log_error(
+                title="Mint Auto Reconciliation Error",
+                message=frappe.get_traceback(),
+            )
+
+            skipped.append({
+                "bank_transaction": transaction.name,
+                "payment_entry": payment_entry.name,
+                "reference_number": reference_number,
+                "reason": str(e),
+            })
+
+    return {
+        "reconciled": reconciled,
+        "skipped": skipped,
+        "reconciled_count": len(reconciled),
+        "skipped_count": len(skipped),
+    }
+
+
 @frappe.whitelist()
 def unreconcile_transaction(transaction_name: str | int):
     """
