@@ -218,6 +218,102 @@ export const useRefreshUnreconciledTransactions = () => {
 
 }
 
+export const useAutoReconcileByReference = () => {
+
+    const bankAccount = useAtomValue(selectedBankAccountAtom)
+    const dates = useAtomValue(bankRecDateAtom)
+
+    const { call, loading } = useFrappePostCall<{
+        message: {
+            reconciled: {
+                bank_transaction: string
+                payment_entry: string
+                reference_number: string
+                amount: number
+            }[]
+            skipped: {
+                bank_transaction: string
+                payment_entry?: string
+                reference_number?: string
+                reason: string
+            }[]
+            reconciled_count: number
+            skipped_count: number
+        }
+    }>('mint.apis.bank_reconciliation.auto_reconcile_by_reference')
+
+    const { mutate } = useSWRConfig()
+
+    const autoReconcileByReference = () => {
+
+        return call({
+            bank_account: bankAccount?.name,
+            from_date: dates.fromDate,
+            to_date: dates.toDate,
+        }).then((res) => {
+
+            const result = res.message
+
+            // Refresh the unreconciled transactions list.
+            mutate(
+                `bank-reconciliation-unreconciled-transactions-${bankAccount?.name}-${dates.fromDate}-${dates.toDate}`
+            )
+
+            // Refresh the closing balance.
+            mutate(
+                `bank-reconciliation-account-closing-balance-${bankAccount?.name}-${dates.toDate}`
+            )
+
+            if (result.reconciled_count > 0) {
+
+                toast.success(
+                    _("Auto Reconciliation Completed"),
+                    {
+                        description: _(
+                            "{0} transaction(s) reconciled successfully.",
+                            [result.reconciled_count.toString()]
+                        ),
+                        duration: 5000,
+                    }
+                )
+
+            } else {
+
+                toast.info(
+                    _("No Transactions Reconciled"),
+                    {
+                        description: _(
+                            "No exact reference and amount matches were found."
+                        ),
+                        duration: 5000,
+                    }
+                )
+            }
+
+            return result
+
+        }).catch((error) => {
+
+            console.error(error)
+
+            toast.error(
+                _("Auto Reconciliation Failed"),
+                {
+                    duration: 5000,
+                    description: getErrorMessage(error)
+                }
+            )
+
+            throw error
+        })
+    }
+
+    return {
+        autoReconcileByReference,
+        loading,
+    }
+}
+
 export const useReconcileTransaction = () => {
 
     const { call, loading } = useFrappePostCall<{ message: BankTransaction }>('mint.apis.bank_reconciliation.reconcile_vouchers')
